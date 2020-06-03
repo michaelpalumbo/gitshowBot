@@ -1,5 +1,5 @@
 // for experimenting with the git repo /gitshowBot
-
+const Jimp = require('jimp')
 const fs = require('fs')
 const compose = require('word-vomit')
 const {exec} = require('child_process')
@@ -9,31 +9,7 @@ let workingDir = '../gitshow1'
 // should pick a hash from the history. create a branch, and then do the following:
 
 // analyze the recording write in the reflections.md
-// At first I got hung up on needing the bot to by musically intelligent. then reading David Cope's book "Computer Models of Musical Creativity", considered that the rules of git show don't really require much (if at all) music knowledge. instead, you just have to understand and follow the rules in the README.md. Which means that the bot only needs some way of following the rules. For the moment, i'm having it analyze a spectrogram of the recording.wav 
 
-// analyse the score, add more to the reflections
-// async function log() {  
-//     let statusSummary = null;
-//     try {
-//        show = await git(workingDir).show(['HEAD:score.md']);
-//        let lines = show.split('\n')
-//     //    counter++
-//     //    console.log(compose(statusSummary, 0.5))
-//     // console.log(show.split('\n'))
-//     //    getLogs()
-//     }
-//     catch (e) {
-//        // handle the error
-//        console.log(e)
-//     }
-    
-//     return statusSummary;
-//   }
-// log()
-
-// take some content from the reflections to modify the score. 
-// let variation = 0.5 // note the variation can be from 0. - 1. 
-// console.log(compose(inputText, variation))
 // // for this use the 
 
 // make changes to the patch
@@ -90,7 +66,7 @@ async function stepThree(target) {
 
 // 4. listen to recording.wav several times and follow along with *score.md*
 // * for now the bot just reports some MIR data about the file
-// TODO also add a spectrogram
+// DONE also add a spectrogram
 // TODO then modify the spectrogram with some kind of graphics manipulation lib, and use that in the score. 
 
 let averages = {
@@ -118,7 +94,7 @@ function stepFour(){
     };
 
     console.log('analyzing ' + repoDir + 'recording.wav')
-    
+    exec('sox ' + repoDir + 'recording.wav -n spectrogram -o ' + repoDir + 'extensions/spectrogram.png')
     exec('sox --i ' + repoDir + 'recording.wav', (stdout, stderr, err)=>{
         MIRConfig.sampleRate = stderr.split('\n')[3].split(': ')[1]
         MIRConfig.highFrequency = MIRConfig.sampleRate / 2
@@ -174,14 +150,16 @@ function stepSeven(show){
 async function stepEight() { 
    
     try {
-        fs.appendFileSync(repoDir + 'reflections.md', "\n\n\`\`\`javascript\n" + JSON.stringify(averages, null, 2) + "\`\`\`\n")
+        fs.appendFileSync(repoDir + 'reflections.md', "\n\n\`\`\`javascript\n" + JSON.stringify(averages, null, 2) + "\n\`\`\`\n\n")
+        fs.appendFileSync(repoDir + 'reflections.md', "\n![spectrogram](" + repoDir + 'extensions/spectrogram.png)')
 
         // })
     }
     catch (e) {console.log(e)} 
     console.log('added MIR to reflections.md')
-    git(repoDir).commit('contributed MIR averages', ['reflections.md'])    
+    git(repoDir).commit('contributed MIR averages', ['reflections.md', ])    
     console.log('committed reflections.md')
+    stepThirteen()
     // return show;
   }
 
@@ -200,15 +178,61 @@ async function stepEight() {
 // 12. Reopen the *score.md*, and then open the file *patch.vcv* in VCV Rack, and experiment with performing the score several times. Add notes about this process in the *reflections.md* document, remembering to save & commit your changes. 
 
 // 13. Begin to compose a new version of the score in *score.md* and make a newer version of *patch.vcv*:
-// 	- you can include as much or as little of the previous version of the score as you like. 
-// 	- drawing from your own notes, add, duplicate, remove, or refine compositional elements
-// 	- consider that markdown files can embed images and other content, so a score doesn't have to be limited to text... 
-// 	- see the file markdown_examples.md for all that can be achieved in markdown!
-// 	- Add new patch cables, add/remove modules, etc. 
-// 	- remember to save and commit your changes **very often**, be generously descriptive in your commit messages!
+function stepThirteen(){
+    let rotation = Math.floor(Math.random() * 360) + 1
+    let blur = Math.floor(Math.random() * 10) + 1
+    let posterize = Math.floor(Math.random() * 10) + 1
+    Jimp.read(repoDir + 'extensions/spectrogram.png')
+  .then(spectro => {
+    return spectro
+        .rotate( rotation )
+        .posterize(posterize)
+        .blur(blur)
+        .write(repoDir + 'extensions/scoreSpectro.png'); // save
+  })
+  .catch(err => {
+    console.error(err);
+  });
+
+  async function scorer() {  
+    let statusSummary = null;
+    try {
+       show = await git(workingDir).show(['HEAD:score.md']);
+       let lines = show.split('\n')
+       for(i = 0; i <lines.length; i++){
+        fs.appendFileSync(repoDir + 'score2.md', '\n' + compose(lines[i], 0.1))
+
+       }
+       fs.appendFileSync(repoDir + 'reflections.md', "\n![spectrogram](" + repoDir + 'extensions/scoreSpectro.png)')
+
+
+    //    counter++
+    //    console.log(show, compose(show, 0.5))
+    // console.log(show.split('\n'))
+    //    getLogs()
+    }
+    catch (e) {
+       // handle the error
+       console.log(e)
+    }
+    
+  }
+  scorer()
+
+}
+
+// At first I got hung up on needing the bot to by musically intelligent. then reading David Cope's book "Computer Models of Musical Creativity", considered that the rules of git show don't really require much (if at all) music knowledge. instead, you just have to understand and follow the rules in the README.md. Which means that the bot only needs some way of following the rules. For the moment, i'm having it analyze a spectrogram of the recording.wav 
+
+
+// TODO	- you can include as much or as little of the previous version of the score as you like. 
+// TODO 	- drawing from your own notes, add, duplicate, remove, or refine compositional elements
+// TODO 	- consider that markdown files can embed images and other content, so a score doesn't have to be limited to text... 
+// TODO 	- see the file markdown_examples.md for all that can be achieved in markdown!
+// TODO 	- Add new patch cables, add/remove modules, etc. 
+// TODO 	- remember to save and commit your changes **very often**, be generously descriptive in your commit messages!
 
 // 14. Practice performing the score (maximum length is 90 seconds!). 
-
+// TODO Manipulate the rack.vcv file using javascript
 // 15. To record yourself, locate the record module in the patch (or add one if it isn't there). Right-click it, and ensure the following settings:
 // 	- under 'Output File':
 // 		- Click the /path/to/the/recording.wav (might be 'Select...'), and ensure that this path is pointing to **the 'recording.wav' in this week's repository, not the one from last week** i.e. the same folder that this readme.md is located in... 
